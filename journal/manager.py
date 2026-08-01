@@ -6,6 +6,7 @@ from datetime import datetime
 from journal.db import get_connection
 from journal.models import Entry, Habit
 from journal.config import MOODS
+from journal.streaks import compute_streaks
 
 
 class JournalManager:
@@ -106,3 +107,25 @@ class JournalManager:
         rows = cursor.fetchall()
         conn.close()
         return rows  # list of (habit_name, completed) tuples
+
+
+
+
+    def get_habit_streaks(self, name):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM habits WHERE name = ?", (name,))
+        row = cursor.fetchone()
+        if row is None:
+            conn.close()
+            raise ValueError(f"Habit '{name}' not found.")
+        habit_id = row[0]
+
+        cursor.execute(
+            "SELECT date FROM habit_logs WHERE habit_id = ? AND completed = 1",
+            (habit_id,)
+        )
+        dates = [r[0] for r in cursor.fetchall()]
+        conn.close()
+
+        return compute_streaks(dates)

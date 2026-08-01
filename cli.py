@@ -39,7 +39,7 @@ def today():
         mark = "x" if completed else " "
         click.echo(f"[{mark}] {name}")
 
-        
+
 
 
 @cli.group()
@@ -87,6 +87,16 @@ def habit_check(name):
     try:
         jm.check_habit(name)
         click.echo(f"Checked '{name}' for today.")
+    except ValueError as e:
+        click.echo(f"Error: {e}")
+
+@habit.command("streak")
+@click.argument("name")
+def habit_streak(name):
+    """Show current and longest streak for a habit."""
+    try:
+        current, longest = jm.get_habit_streaks(name)
+        click.echo(f"{name}: current streak = {current}, longest streak = {longest}")
     except ValueError as e:
         click.echo(f"Error: {e}")
 
