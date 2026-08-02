@@ -40,6 +40,26 @@ def today():
         click.echo(f"[{mark}] {name}")
 
 
+@cli.command()
+@click.option("--start", required=True, help="Start date YYYY-MM-DD")
+@click.option("--end", required=True, help="End date YYYY-MM-DD")
+def view(start, end):
+    """View entries and habit completions in a date range."""
+    entries, habit_completions = jm.view_range(start, end)
+
+    click.echo(f"Entries from {start} to {end}:")
+    if not entries:
+        click.echo("  (none)")
+    for e in entries:
+        click.echo(f"  [{e.created_at}] mood={e.mood} - {e.note}")
+
+    click.echo(f"\nHabit completions from {start} to {end}:")
+    if not habit_completions:
+        click.echo("  (none)")
+    for name, date in habit_completions:
+        click.echo(f"  {date} - {name}")
+
+
 
 
 @cli.group()

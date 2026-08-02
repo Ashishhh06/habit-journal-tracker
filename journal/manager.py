@@ -129,3 +129,29 @@ class JournalManager:
         conn.close()
 
         return compute_streaks(dates)
+
+
+    
+    def view_range(self, start_date, end_date):
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT id, created_at, mood, note
+            FROM entries
+            WHERE date(created_at) BETWEEN ? AND ?
+            ORDER BY created_at
+        """, (start_date, end_date))
+        entries = [Entry(id=r[0], created_at=r[1], mood=r[2], note=r[3]) for r in cursor.fetchall()]
+
+        cursor.execute("""
+            SELECT h.name, hl.date
+            FROM habit_logs hl
+            JOIN habits h ON h.id = hl.habit_id
+            WHERE hl.date BETWEEN ? AND ? AND hl.completed = 1
+            ORDER BY hl.date
+        """, (start_date, end_date))
+        habit_completions = cursor.fetchall()
+
+        conn.close()
+        return entries, habit_completions
