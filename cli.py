@@ -72,6 +72,17 @@ def heatmap(start, end):
 
 
 
+@cli.command()
+@click.option("--start", required=True, help="Start date YYYY-MM-DD")
+@click.option("--end", required=True, help="End date YYYY-MM-DD")
+def trend(start, end):
+    """Generate a daily completion percentage trend chart."""
+    path = jm.plot_completion_trend(start, end)
+    click.echo(f"Trend chart saved to {path}")
+
+
+
+
 @cli.group()
 def habit():
     """Manage habits."""

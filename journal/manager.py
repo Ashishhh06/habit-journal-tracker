@@ -203,3 +203,28 @@ class JournalManager:
         plt.close(fig)
 
         return save_path
+
+
+    def plot_completion_trend(self, start_date, end_date, save_path="completion_trend.png"):
+        import matplotlib.pyplot as plt
+
+        matrix = self.get_habit_matrix(start_date, end_date)
+
+        if matrix.empty or len(matrix.index) == 0:
+            daily_pct = [0] * len(matrix.columns)
+        else:
+            daily_pct = (matrix.sum(axis=0) / len(matrix.index)) * 100
+
+        fig, ax = plt.subplots(figsize=(max(6, len(matrix.columns) * 0.5), 3))
+        ax.plot(matrix.columns, daily_pct, marker="o", color="#2e7d32", linewidth=2)
+        ax.fill_between(matrix.columns, daily_pct, color="#2e7d32", alpha=0.15)
+
+        ax.set_ylim(0, 105)
+        ax.set_ylabel("Completion %")
+        ax.set_title(f"Daily Habit Completion: {start_date} to {end_date}")
+        plt.xticks(rotation=45, ha="right")
+        fig.tight_layout()
+        fig.savefig(save_path, dpi=150)
+        plt.close(fig)
+
+        return save_path
