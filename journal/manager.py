@@ -228,3 +228,51 @@ class JournalManager:
         plt.close(fig)
 
         return save_path
+
+
+
+    def get_mood_trend(self, start_date, end_date):
+        import pandas as pd
+        from journal.config import MOODS
+
+        conn = get_connection()
+        entries_df = pd.read_sql_query("""
+            SELECT created_at, mood
+            FROM entries
+            WHERE date(created_at) BETWEEN ? AND ? AND mood IS NOT NULL
+        """, conn, params=(start_date, end_date))
+        conn.close()
+
+        if entries_df.empty:
+            return pd.Series(dtype=float)
+
+        entries_df["date"] = pd.to_datetime(entries_df["created_at"]).dt.strftime("%Y-%m-%d")
+        entries_df["score"] = entries_df["mood"].map(MOODS)
+
+        daily_avg = entries_df.groupby("date")["score"].mean()
+        return daily_avg
+
+    def plot_mood_trend(self, start_date, end_date, save_path="mood_trend.png"):
+        import matplotlib.pyplot as plt
+
+        daily_avg = self.get_mood_trend(start_date, end_date)
+
+        fig, ax = plt.subplots(figsize=(max(6, len(daily_avg) * 0.5), 3))
+
+        if daily_avg.empty:
+            ax.text(0.5, 0.5, "No mood data in this range", ha="center", va="center")
+            ax.set_xticks([])
+            ax.set_yticks([])
+        else:
+            ax.plot(daily_avg.index, daily_avg.values, marker="o", color="#1565c0", linewidth=2)
+            ax.axhline(0, color="gray", linewidth=0.8, linestyle="--")
+            ax.set_ylim(-2.5, 2.5)
+            ax.set_ylabel("Mood score")
+            plt.xticks(rotation=45, ha="right")
+
+        ax.set_title(f"Mood Trend: {start_date} to {end_date}")
+        fig.tight_layout()
+        fig.savefig(save_path, dpi=150)
+        plt.close(fig)
+
+        return save_path

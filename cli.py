@@ -81,6 +81,15 @@ def trend(start, end):
     click.echo(f"Trend chart saved to {path}")
 
 
+@cli.command()
+@click.option("--start", required=True, help="Start date YYYY-MM-DD")
+@click.option("--end", required=True, help="End date YYYY-MM-DD")
+def mood(start, end):
+    """Generate a mood trend chart."""
+    path = jm.plot_mood_trend(start, end)
+    click.echo(f"Mood chart saved to {path}")
+
+
 
 
 @cli.group()
