@@ -90,6 +90,15 @@ def mood(start, end):
     click.echo(f"Mood chart saved to {path}")
 
 
+@cli.command()
+@click.option("--year", required=True, type=int, help="Year, e.g. 2026")
+@click.option("--month", required=True, type=int, help="Month, 1-12")
+def dashboard(year, month):
+    """Generate a full monthly analytics dashboard."""
+    path = jm.generate_monthly_dashboard(year, month)
+    click.echo(f"Dashboard saved to {path}")
+
+
 
 
 @cli.group()

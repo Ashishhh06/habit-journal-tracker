@@ -276,3 +276,62 @@ class JournalManager:
         plt.close(fig)
 
         return save_path
+
+
+
+
+
+    def generate_monthly_dashboard(self, year, month, save_path="monthly_dashboard.png"):
+        import matplotlib.pyplot as plt
+        import calendar
+
+        start_date = f"{year}-{month:02d}-01"
+        last_day = calendar.monthrange(year, month)[1]
+        end_date = f"{year}-{month:02d}-{last_day:02d}"
+
+        matrix = self.get_habit_matrix(start_date, end_date)
+        mood_avg = self.get_mood_trend(start_date, end_date)
+
+        if matrix.empty or len(matrix.index) == 0:
+            daily_pct = [0] * len(matrix.columns)
+        else:
+            daily_pct = (matrix.sum(axis=0) / len(matrix.index)) * 100
+
+        fig, axes = plt.subplots(
+            3, 1, figsize=(max(10, last_day * 0.4), 10),
+            gridspec_kw={"height_ratios": [len(matrix.index) or 1, 2, 2]}
+        )
+        fig.suptitle(f"Monthly Report: {calendar.month_name[month]} {year}", fontsize=16, fontweight="bold")
+
+        ax1 = axes[0]
+        im = ax1.imshow(matrix.values, cmap="Greens", vmin=0, vmax=1, aspect="auto")
+        ax1.set_yticks(range(len(matrix.index)))
+        ax1.set_yticklabels(matrix.index)
+        ax1.set_xticks(range(len(matrix.columns)))
+        ax1.set_xticklabels(matrix.columns, rotation=90, fontsize=7)
+        ax1.set_title("Habit Completion")
+
+        ax2 = axes[1]
+        ax2.plot(matrix.columns, daily_pct, marker="o", color="#2e7d32", linewidth=2)
+        ax2.fill_between(matrix.columns, daily_pct, color="#2e7d32", alpha=0.15)
+        ax2.set_ylim(0, 105)
+        ax2.set_ylabel("Completion %")
+        ax2.set_xticks(range(len(matrix.columns)))
+        ax2.set_xticklabels([])
+        ax2.set_title("Daily Completion %")
+
+        ax3 = axes[2]
+        if not mood_avg.empty:
+            ax3.plot(mood_avg.index, mood_avg.values, marker="o", color="#1565c0", linewidth=2)
+        ax3.axhline(0, color="gray", linewidth=0.8, linestyle="--")
+        ax3.set_ylim(-2.5, 2.5)
+        ax3.set_ylabel("Mood score")
+        ax3.set_xticks(range(len(matrix.columns)))
+        ax3.set_xticklabels(matrix.columns, rotation=90, fontsize=7)
+        ax3.set_title("Mood Trend")
+
+        fig.tight_layout(rect=[0, 0, 1, 0.96])
+        fig.savefig(save_path, dpi=150)
+        plt.close(fig)
+
+        return save_path
