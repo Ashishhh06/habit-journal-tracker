@@ -126,6 +126,16 @@ def summary(start, end):
 
 
 
+@cli.command()
+@click.option("--year", required=True, type=int, help="Year, e.g. 2026")
+@click.option("--month", required=True, type=int, help="Month, 1-12")
+def export(year, month):
+    """Export a full monthly report as a PDF."""
+    path = jm.export_monthly_report(year, month)
+    click.echo(f"Report exported to {path}")
+
+
+
 
 @cli.group()
 def habit():

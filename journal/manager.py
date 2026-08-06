@@ -2,6 +2,7 @@
 
 
 import sqlite3
+import os
 from datetime import datetime
 from journal.db import get_connection
 from journal.models import Entry, Habit
@@ -366,3 +367,62 @@ class JournalManager:
             result["worst_mood_day"] = (mood_avg.idxmin(), mood_avg.min())
 
         return result
+
+
+
+    def export_monthly_report(self, year, month, save_path=None):
+        import matplotlib.pyplot as plt
+        from matplotlib.backends.backend_pdf import PdfPages
+        import calendar
+
+        if save_path is None:
+            save_path = f"report_{year}_{month:02d}.pdf"
+
+        start_date = f"{year}-{month:02d}-01"
+        last_day = calendar.monthrange(year, month)[1]
+        end_date = f"{year}-{month:02d}-{last_day:02d}"
+
+        # Reuse the dashboard image we already know how to build
+        dashboard_path = self.generate_monthly_dashboard(year, month, save_path="_temp_dashboard.png")
+        summary = self.get_best_worst_days(start_date, end_date)
+
+        with PdfPages(save_path) as pdf:
+            # Page 1: the dashboard image
+            img = plt.imread(dashboard_path)
+            fig1, ax1 = plt.subplots(figsize=(10, 10))
+            ax1.imshow(img)
+            ax1.axis("off")
+            pdf.savefig(fig1)
+            plt.close(fig1)
+
+            # Page 2: text summary
+            fig2, ax2 = plt.subplots(figsize=(8.5, 11))
+            ax2.axis("off")
+
+            lines = [f"Monthly Report: {calendar.month_name[month]} {year}", ""]
+
+            if summary["best_completion_day"]:
+                day, pct = summary["best_completion_day"]
+                lines.append(f"Best completion day:  {day}  ({pct:.0f}%)")
+            if summary["worst_completion_day"]:
+                day, pct = summary["worst_completion_day"]
+                lines.append(f"Worst completion day: {day}  ({pct:.0f}%)")
+            if summary["best_mood_day"]:
+                day, score = summary["best_mood_day"]
+                lines.append(f"Best mood day:        {day}  (score {score:.1f})")
+            if summary["worst_mood_day"]:
+                day, score = summary["worst_mood_day"]
+                lines.append(f"Worst mood day:       {day}  (score {score:.1f})")
+
+            lines.append("")
+            lines.append("Habit streaks:")
+            for h in self.list_active_habits():
+                current, longest = self.get_habit_streaks(h.name)
+                lines.append(f"  {h.name}: current = {current}, longest = {longest}")
+
+            ax2.text(0.05, 0.95, "\n".join(lines), va="top", fontsize=12, family="monospace")
+            pdf.savefig(fig2)
+            plt.close(fig2)
+
+        os.remove(dashboard_path)
+        return save_path
