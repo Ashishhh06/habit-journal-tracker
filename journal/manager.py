@@ -335,3 +335,34 @@ class JournalManager:
         plt.close(fig)
 
         return save_path
+
+
+
+
+    def get_best_worst_days(self, start_date, end_date):
+        from datetime import datetime as dt
+
+        today_str = dt.now().strftime("%Y-%m-%d")
+        effective_end = min(end_date, today_str)
+
+        matrix = self.get_habit_matrix(start_date, effective_end)
+        mood_avg = self.get_mood_trend(start_date, effective_end)
+
+        result = {
+            "best_completion_day": None,
+            "worst_completion_day": None,
+            "best_mood_day": None,
+            "worst_mood_day": None,
+        }
+
+        if not matrix.empty and len(matrix.index) > 0:
+            daily_pct = (matrix.sum(axis=0) / len(matrix.index)) * 100
+            if len(daily_pct) > 0:
+                result["best_completion_day"] = (daily_pct.idxmax(), daily_pct.max())
+                result["worst_completion_day"] = (daily_pct.idxmin(), daily_pct.min())
+
+        if not mood_avg.empty:
+            result["best_mood_day"] = (mood_avg.idxmax(), mood_avg.max())
+            result["worst_mood_day"] = (mood_avg.idxmin(), mood_avg.min())
+
+        return result

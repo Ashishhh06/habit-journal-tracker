@@ -99,6 +99,32 @@ def dashboard(year, month):
     click.echo(f"Dashboard saved to {path}")
 
 
+@cli.command()
+@click.option("--start", required=True, help="Start date YYYY-MM-DD")
+@click.option("--end", required=True, help="End date YYYY-MM-DD")
+def summary(start, end):
+    """Show best/worst days for completion and mood."""
+    result = jm.get_best_worst_days(start, end)
+
+    click.echo(f"Summary: {start} to {end}")
+
+    if result["best_completion_day"]:
+        day, pct = result["best_completion_day"]
+        click.echo(f"  Best completion day:  {day} ({pct:.0f}%)")
+    if result["worst_completion_day"]:
+        day, pct = result["worst_completion_day"]
+        click.echo(f"  Worst completion day: {day} ({pct:.0f}%)")
+    if result["best_mood_day"]:
+        day, score = result["best_mood_day"]
+        click.echo(f"  Best mood day:        {day} (score {score:.1f})")
+    if result["worst_mood_day"]:
+        day, score = result["worst_mood_day"]
+        click.echo(f"  Worst mood day:       {day} (score {score:.1f})")
+
+    if not any(result.values()):
+        click.echo("  Not enough data yet.")
+
+
 
 
 @cli.group()
