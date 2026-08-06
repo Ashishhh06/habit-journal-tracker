@@ -61,6 +61,16 @@ def view(start, end):
 
 
 
+@cli.command()
+@click.option("--start", required=True, help="Start date YYYY-MM-DD")
+@click.option("--end", required=True, help="End date YYYY-MM-DD")
+def heatmap(start, end):
+    """Generate a habit completion heatmap image."""
+    path = jm.plot_habit_heatmap(start, end)
+    click.echo(f"Heatmap saved to {path}")
+
+
+
 
 @cli.group()
 def habit():

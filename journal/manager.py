@@ -155,3 +155,51 @@ class JournalManager:
 
         conn.close()
         return entries, habit_completions
+
+
+
+    def get_habit_matrix(self, start_date, end_date):
+        import pandas as pd
+
+        conn = get_connection()
+        habits_df = pd.read_sql_query(
+            "SELECT id, name FROM habits WHERE active = 1", conn
+        )
+        logs_df = pd.read_sql_query("""
+            SELECT habit_id, date, completed
+            FROM habit_logs
+            WHERE date BETWEEN ? AND ? AND completed = 1
+        """, conn, params=(start_date, end_date))
+        conn.close()
+
+        date_range = pd.date_range(start=start_date, end=end_date).strftime("%Y-%m-%d")
+        matrix = pd.DataFrame(0, index=habits_df["name"], columns=date_range)
+
+        for _, row in logs_df.iterrows():
+            habit_name = habits_df.loc[habits_df["id"] == row["habit_id"], "name"]
+            if not habit_name.empty:
+                matrix.loc[habit_name.values[0], row["date"]] = 1
+
+        return matrix
+
+
+
+    def plot_habit_heatmap(self, start_date, end_date, save_path="habit_heatmap.png"):
+        import matplotlib.pyplot as plt
+
+        matrix = self.get_habit_matrix(start_date, end_date)
+
+        fig, ax = plt.subplots(figsize=(max(6, len(matrix.columns) * 0.6), max(2, len(matrix.index) * 0.6)))
+        im = ax.imshow(matrix.values, cmap="Greens", vmin=0, vmax=1, aspect="auto")
+
+        ax.set_xticks(range(len(matrix.columns)))
+        ax.set_xticklabels(matrix.columns, rotation=45, ha="right")
+        ax.set_yticks(range(len(matrix.index)))
+        ax.set_yticklabels(matrix.index)
+
+        ax.set_title(f"Habit Completion: {start_date} to {end_date}")
+        fig.tight_layout()
+        fig.savefig(save_path, dpi=150)
+        plt.close(fig)
+
+        return save_path
