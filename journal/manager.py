@@ -1,18 +1,64 @@
 # journal/manager.py
 
-
 import sqlite3
 import os
 from datetime import datetime
 from journal.db import get_connection
-from journal.models import Entry, Habit
+from journal.models import Entry, Habit, User
 from journal.config import MOODS
 from journal.streaks import compute_streaks
 
 
 class JournalManager:
 
-    def add_entry(self, mood, note):
+    # ---------- User accounts ----------
+
+    def register_user(self, username, password):
+        from werkzeug.security import generate_password_hash
+
+        password_hash = generate_password_hash(password)
+        conn = get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+                (username, password_hash)
+            )
+            conn.commit()
+            new_id = cursor.lastrowid
+        except sqlite3.IntegrityError:
+            conn.close()
+            raise ValueError(f"Username '{username}' is already taken.")
+        conn.close()
+        return User(id=new_id, username=username, password_hash=password_hash)
+
+    def get_user_by_username(self, username):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, password_hash FROM users WHERE username = ?", (username,))
+        row = cursor.fetchone()
+        conn.close()
+        if row is None:
+            return None
+        return User(id=row[0], username=row[1], password_hash=row[2])
+
+    def get_user_by_id(self, user_id):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, password_hash FROM users WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row is None:
+            return None
+        return User(id=row[0], username=row[1], password_hash=row[2])
+
+    def verify_password(self, user, password):
+        from werkzeug.security import check_password_hash
+        return check_password_hash(user.password_hash, password)
+
+    # ---------- Journal entries ----------
+
+    def add_entry(self, user_id, mood, note):
         if mood is not None and mood not in MOODS:
             raise ValueError(f"Invalid mood '{mood}'. Must be one of: {list(MOODS.keys())}")
 
@@ -21,25 +67,48 @@ class JournalManager:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO entries (created_at, mood, note) VALUES (?, ?, ?)",
-            (created_at, mood, note)
+            "INSERT INTO entries (user_id, created_at, mood, note) VALUES (?, ?, ?, ?)",
+            (user_id, created_at, mood, note)
         )
         conn.commit()
         new_id = cursor.lastrowid
         conn.close()
 
-        return Entry(id=new_id, created_at=created_at, mood=mood, note=note)
+        return Entry(id=new_id, user_id=user_id, created_at=created_at, mood=mood, note=note)
 
+    def view_range(self, user_id, start_date, end_date):
+        conn = get_connection()
+        cursor = conn.cursor()
 
+        cursor.execute("""
+            SELECT id, user_id, created_at, mood, note
+            FROM entries
+            WHERE date(created_at) BETWEEN ? AND ? AND user_id = ?
+            ORDER BY created_at
+        """, (start_date, end_date, user_id))
+        entries = [Entry(id=r[0], user_id=r[1], created_at=r[2], mood=r[3], note=r[4]) for r in cursor.fetchall()]
 
+        cursor.execute("""
+            SELECT h.name, hl.date
+            FROM habit_logs hl
+            JOIN habits h ON h.id = hl.habit_id
+            WHERE hl.date BETWEEN ? AND ? AND hl.completed = 1 AND h.user_id = ?
+            ORDER BY hl.date
+        """, (start_date, end_date, user_id))
+        habit_completions = cursor.fetchall()
 
-    def add_habit(self, name):
+        conn.close()
+        return entries, habit_completions
+
+    # ---------- Habits ----------
+
+    def add_habit(self, user_id, name):
         conn = get_connection()
         cursor = conn.cursor()
         try:
             cursor.execute(
-                "INSERT INTO habits (name, active) VALUES (?, 1)",
-                (name,)
+                "INSERT INTO habits (user_id, name, active) VALUES (?, ?, 1)",
+                (user_id, name)
             )
             conn.commit()
             new_id = cursor.lastrowid
@@ -47,33 +116,42 @@ class JournalManager:
             conn.close()
             raise ValueError(f"Habit '{name}' already exists.")
         conn.close()
-        return Habit(id=new_id, name=name, active=1)
+        return Habit(id=new_id, user_id=user_id, name=name, active=1)
 
-    def remove_habit(self, name):
+    def remove_habit(self, user_id, name):
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("UPDATE habits SET active = 0 WHERE name = ?", (name,))
+        cursor.execute(
+            "UPDATE habits SET active = 0 WHERE name = ? AND user_id = ?",
+            (name, user_id)
+        )
         conn.commit()
         affected = cursor.rowcount
         conn.close()
         if affected == 0:
             raise ValueError(f"Habit '{name}' not found.")
 
-    def list_active_habits(self):
+    def list_active_habits(self, user_id):
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id, name, active FROM habits WHERE active = 1")
+        cursor.execute(
+            "SELECT id, user_id, name, active FROM habits WHERE active = 1 AND user_id = ?",
+            (user_id,)
+        )
         rows = cursor.fetchall()
         conn.close()
-        return [Habit(id=r[0], name=r[1], active=r[2]) for r in rows]
+        return [Habit(id=r[0], user_id=r[1], name=r[2], active=r[3]) for r in rows]
 
-    def check_habit(self, name, date=None):
+    def check_habit(self, user_id, name, date=None):
         if date is None:
             date = datetime.now().strftime("%Y-%m-%d")
 
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM habits WHERE name = ? AND active = 1", (name,))
+        cursor.execute(
+            "SELECT id FROM habits WHERE name = ? AND active = 1 AND user_id = ?",
+            (name, user_id)
+        )
         row = cursor.fetchone()
         if row is None:
             conn.close()
@@ -87,11 +165,7 @@ class JournalManager:
         conn.commit()
         conn.close()
 
-
-
-
-
-    def today_checklist(self, date=None):
+    def today_checklist(self, user_id, date=None):
         if date is None:
             date = datetime.now().strftime("%Y-%m-%d")
 
@@ -102,20 +176,20 @@ class JournalManager:
             FROM habits h
             LEFT JOIN habit_logs hl
                 ON h.id = hl.habit_id AND hl.date = ?
-            WHERE h.active = 1
+            WHERE h.active = 1 AND h.user_id = ?
             ORDER BY h.name
-        """, (date,))
+        """, (date, user_id))
         rows = cursor.fetchall()
         conn.close()
-        return rows  # list of (habit_name, completed) tuples
+        return rows
 
-
-
-
-    def get_habit_streaks(self, name):
+    def get_habit_streaks(self, user_id, name):
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM habits WHERE name = ?", (name,))
+        cursor.execute(
+            "SELECT id FROM habits WHERE name = ? AND user_id = ?",
+            (name, user_id)
+        )
         row = cursor.fetchone()
         if row is None:
             conn.close()
@@ -131,46 +205,21 @@ class JournalManager:
 
         return compute_streaks(dates)
 
+    # ---------- Analytics data (pandas) ----------
 
-    
-    def view_range(self, start_date, end_date):
-        conn = get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT id, created_at, mood, note
-            FROM entries
-            WHERE date(created_at) BETWEEN ? AND ?
-            ORDER BY created_at
-        """, (start_date, end_date))
-        entries = [Entry(id=r[0], created_at=r[1], mood=r[2], note=r[3]) for r in cursor.fetchall()]
-
-        cursor.execute("""
-            SELECT h.name, hl.date
-            FROM habit_logs hl
-            JOIN habits h ON h.id = hl.habit_id
-            WHERE hl.date BETWEEN ? AND ? AND hl.completed = 1
-            ORDER BY hl.date
-        """, (start_date, end_date))
-        habit_completions = cursor.fetchall()
-
-        conn.close()
-        return entries, habit_completions
-
-
-
-    def get_habit_matrix(self, start_date, end_date):
+    def get_habit_matrix(self, user_id, start_date, end_date):
         import pandas as pd
 
         conn = get_connection()
         habits_df = pd.read_sql_query(
-            "SELECT id, name FROM habits WHERE active = 1", conn
+            "SELECT id, name FROM habits WHERE active = 1 AND user_id = ?", conn, params=(user_id,)
         )
         logs_df = pd.read_sql_query("""
-            SELECT habit_id, date, completed
-            FROM habit_logs
-            WHERE date BETWEEN ? AND ? AND completed = 1
-        """, conn, params=(start_date, end_date))
+            SELECT hl.habit_id, hl.date, hl.completed
+            FROM habit_logs hl
+            JOIN habits h ON h.id = hl.habit_id
+            WHERE hl.date BETWEEN ? AND ? AND hl.completed = 1 AND h.user_id = ?
+        """, conn, params=(start_date, end_date, user_id))
         conn.close()
 
         date_range = pd.date_range(start=start_date, end=end_date).strftime("%Y-%m-%d")
@@ -183,15 +232,63 @@ class JournalManager:
 
         return matrix
 
+    def get_mood_trend(self, user_id, start_date, end_date):
+        import pandas as pd
 
+        conn = get_connection()
+        entries_df = pd.read_sql_query("""
+            SELECT created_at, mood
+            FROM entries
+            WHERE date(created_at) BETWEEN ? AND ? AND mood IS NOT NULL AND user_id = ?
+        """, conn, params=(start_date, end_date, user_id))
+        conn.close()
 
-    def plot_habit_heatmap(self, start_date, end_date, save_path="habit_heatmap.png"):
+        if entries_df.empty:
+            return pd.Series(dtype=float)
+
+        entries_df["date"] = pd.to_datetime(entries_df["created_at"]).dt.strftime("%Y-%m-%d")
+        entries_df["score"] = entries_df["mood"].map(MOODS)
+
+        daily_avg = entries_df.groupby("date")["score"].mean()
+        return daily_avg
+
+    def get_best_worst_days(self, user_id, start_date, end_date):
+        from datetime import datetime as dt
+
+        today_str = dt.now().strftime("%Y-%m-%d")
+        effective_end = min(end_date, today_str)
+
+        matrix = self.get_habit_matrix(user_id, start_date, effective_end)
+        mood_avg = self.get_mood_trend(user_id, start_date, effective_end)
+
+        result = {
+            "best_completion_day": None,
+            "worst_completion_day": None,
+            "best_mood_day": None,
+            "worst_mood_day": None,
+        }
+
+        if not matrix.empty and len(matrix.index) > 0:
+            daily_pct = (matrix.sum(axis=0) / len(matrix.index)) * 100
+            if len(daily_pct) > 0:
+                result["best_completion_day"] = (daily_pct.idxmax(), daily_pct.max())
+                result["worst_completion_day"] = (daily_pct.idxmin(), daily_pct.min())
+
+        if not mood_avg.empty:
+            result["best_mood_day"] = (mood_avg.idxmax(), mood_avg.max())
+            result["worst_mood_day"] = (mood_avg.idxmin(), mood_avg.min())
+
+        return result
+
+    # ---------- Chart generation (file-based, used by CLI) ----------
+
+    def plot_habit_heatmap(self, user_id, start_date, end_date, save_path="habit_heatmap.png"):
         import matplotlib.pyplot as plt
 
-        matrix = self.get_habit_matrix(start_date, end_date)
+        matrix = self.get_habit_matrix(user_id, start_date, end_date)
 
         fig, ax = plt.subplots(figsize=(max(6, len(matrix.columns) * 0.6), max(2, len(matrix.index) * 0.6)))
-        im = ax.imshow(matrix.values, cmap="Greens", vmin=0, vmax=1, aspect="auto")
+        ax.imshow(matrix.values, cmap="Greens", vmin=0, vmax=1, aspect="auto")
 
         ax.set_xticks(range(len(matrix.columns)))
         ax.set_xticklabels(matrix.columns, rotation=45, ha="right")
@@ -205,11 +302,10 @@ class JournalManager:
 
         return save_path
 
-
-    def plot_completion_trend(self, start_date, end_date, save_path="completion_trend.png"):
+    def plot_completion_trend(self, user_id, start_date, end_date, save_path="completion_trend.png"):
         import matplotlib.pyplot as plt
 
-        matrix = self.get_habit_matrix(start_date, end_date)
+        matrix = self.get_habit_matrix(user_id, start_date, end_date)
 
         if matrix.empty or len(matrix.index) == 0:
             daily_pct = [0] * len(matrix.columns)
@@ -230,33 +326,10 @@ class JournalManager:
 
         return save_path
 
-
-
-    def get_mood_trend(self, start_date, end_date):
-        import pandas as pd
-        from journal.config import MOODS
-
-        conn = get_connection()
-        entries_df = pd.read_sql_query("""
-            SELECT created_at, mood
-            FROM entries
-            WHERE date(created_at) BETWEEN ? AND ? AND mood IS NOT NULL
-        """, conn, params=(start_date, end_date))
-        conn.close()
-
-        if entries_df.empty:
-            return pd.Series(dtype=float)
-
-        entries_df["date"] = pd.to_datetime(entries_df["created_at"]).dt.strftime("%Y-%m-%d")
-        entries_df["score"] = entries_df["mood"].map(MOODS)
-
-        daily_avg = entries_df.groupby("date")["score"].mean()
-        return daily_avg
-
-    def plot_mood_trend(self, start_date, end_date, save_path="mood_trend.png"):
+    def plot_mood_trend(self, user_id, start_date, end_date, save_path="mood_trend.png"):
         import matplotlib.pyplot as plt
 
-        daily_avg = self.get_mood_trend(start_date, end_date)
+        daily_avg = self.get_mood_trend(user_id, start_date, end_date)
 
         fig, ax = plt.subplots(figsize=(max(6, len(daily_avg) * 0.5), 3))
 
@@ -278,11 +351,7 @@ class JournalManager:
 
         return save_path
 
-
-
-
-
-    def generate_monthly_dashboard(self, year, month, save_path="monthly_dashboard.png"):
+    def generate_monthly_dashboard(self, user_id, year, month, save_path="monthly_dashboard.png"):
         import matplotlib.pyplot as plt
         import calendar
 
@@ -290,8 +359,8 @@ class JournalManager:
         last_day = calendar.monthrange(year, month)[1]
         end_date = f"{year}-{month:02d}-{last_day:02d}"
 
-        matrix = self.get_habit_matrix(start_date, end_date)
-        mood_avg = self.get_mood_trend(start_date, end_date)
+        matrix = self.get_habit_matrix(user_id, start_date, end_date)
+        mood_avg = self.get_mood_trend(user_id, start_date, end_date)
 
         if matrix.empty or len(matrix.index) == 0:
             daily_pct = [0] * len(matrix.columns)
@@ -305,7 +374,7 @@ class JournalManager:
         fig.suptitle(f"Monthly Report: {calendar.month_name[month]} {year}", fontsize=16, fontweight="bold")
 
         ax1 = axes[0]
-        im = ax1.imshow(matrix.values, cmap="Greens", vmin=0, vmax=1, aspect="auto")
+        ax1.imshow(matrix.values, cmap="Greens", vmin=0, vmax=1, aspect="auto")
         ax1.set_yticks(range(len(matrix.index)))
         ax1.set_yticklabels(matrix.index)
         ax1.set_xticks(range(len(matrix.columns)))
@@ -337,40 +406,7 @@ class JournalManager:
 
         return save_path
 
-
-
-
-    def get_best_worst_days(self, start_date, end_date):
-        from datetime import datetime as dt
-
-        today_str = dt.now().strftime("%Y-%m-%d")
-        effective_end = min(end_date, today_str)
-
-        matrix = self.get_habit_matrix(start_date, effective_end)
-        mood_avg = self.get_mood_trend(start_date, effective_end)
-
-        result = {
-            "best_completion_day": None,
-            "worst_completion_day": None,
-            "best_mood_day": None,
-            "worst_mood_day": None,
-        }
-
-        if not matrix.empty and len(matrix.index) > 0:
-            daily_pct = (matrix.sum(axis=0) / len(matrix.index)) * 100
-            if len(daily_pct) > 0:
-                result["best_completion_day"] = (daily_pct.idxmax(), daily_pct.max())
-                result["worst_completion_day"] = (daily_pct.idxmin(), daily_pct.min())
-
-        if not mood_avg.empty:
-            result["best_mood_day"] = (mood_avg.idxmax(), mood_avg.max())
-            result["worst_mood_day"] = (mood_avg.idxmin(), mood_avg.min())
-
-        return result
-
-
-
-    def export_monthly_report(self, year, month, save_path=None):
+    def export_monthly_report(self, user_id, year, month, save_path=None):
         import matplotlib.pyplot as plt
         from matplotlib.backends.backend_pdf import PdfPages
         import calendar
@@ -382,12 +418,10 @@ class JournalManager:
         last_day = calendar.monthrange(year, month)[1]
         end_date = f"{year}-{month:02d}-{last_day:02d}"
 
-        # Reuse the dashboard image we already know how to build
-        dashboard_path = self.generate_monthly_dashboard(year, month, save_path="_temp_dashboard.png")
-        summary = self.get_best_worst_days(start_date, end_date)
+        dashboard_path = self.generate_monthly_dashboard(user_id, year, month, save_path="_temp_dashboard.png")
+        summary = self.get_best_worst_days(user_id, start_date, end_date)
 
         with PdfPages(save_path) as pdf:
-            # Page 1: the dashboard image
             img = plt.imread(dashboard_path)
             fig1, ax1 = plt.subplots(figsize=(10, 10))
             ax1.imshow(img)
@@ -395,7 +429,6 @@ class JournalManager:
             pdf.savefig(fig1)
             plt.close(fig1)
 
-            # Page 2: text summary
             fig2, ax2 = plt.subplots(figsize=(8.5, 11))
             ax2.axis("off")
 
@@ -416,8 +449,8 @@ class JournalManager:
 
             lines.append("")
             lines.append("Habit streaks:")
-            for h in self.list_active_habits():
-                current, longest = self.get_habit_streaks(h.name)
+            for h in self.list_active_habits(user_id):
+                current, longest = self.get_habit_streaks(user_id, h.name)
                 lines.append(f"  {h.name}: current = {current}, longest = {longest}")
 
             ax2.text(0.05, 0.95, "\n".join(lines), va="top", fontsize=12, family="monospace")
