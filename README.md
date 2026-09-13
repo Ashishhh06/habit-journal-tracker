@@ -8,7 +8,7 @@ HabitJournal lets users track daily/weekly habits, log journal entries with mood
 
 ## Problem Statement
 
-Most people who try to build habits lose track of their own consistency — they don't know if they're actually improving, which habits they're neglecting, or how their mood correlates with their routines. Simple checklist apps show *whether* you did something today, but rarely help you see the *pattern* over weeks and months. HabitJournal addresses this by pairing daily tracking with analytics: streaks, completion-rate trends, mood correlation, and a clear best/worst-day summary, so the data a user generates by just checking things off actually becomes useful feedback.
+Most people who try to build habits lose track of their own consistency — they don't know if they're actually improving, which habits they're neglecting, or how their mood correlates with their routines. Simple checklist apps show whether you did something today, but rarely help you see the pattern over weeks and months. HabitJournal addresses this by pairing daily tracking with analytics: streaks, completion-rate trends, mood correlation, and a clear best/worst-day summary, so the data a user generates by just checking things off actually becomes useful feedback.
 
 ## Dataset
 
@@ -51,7 +51,7 @@ The analytics layer is designed to answer the questions a plain checklist can't:
 - **Goals page** — long-term objectives tied to individual habits
 - **Analytics page** — heatmap, completion trend, mood trend, and one-click PDF report export
 
-
+*(Add screenshots of the dashboard, stats, and analytics pages here.)*
 
 ## How to Run This Project
 
@@ -70,7 +70,6 @@ Then run:
 python app.py
 ```
 Open `http://127.0.0.1:5000` in your browser.
-```
 
 ## Results and Conclusions
 
@@ -86,6 +85,7 @@ The project demonstrates a complete data lifecycle: user input → normalized re
 
 ## Author and Contact
 
-Ashish Kaviti - [GitHub](https://github.com/Ashishhh06)
-              - [Linkedin](https://www.linkedin.com/in/ashish-kaviti-8a39b1309/)
-              - [Email](kavitiashish6187@gmail.com)
+**Ashish Kaviti**
+- [GitHub](https://github.com/Ashishhh06)
+- [LinkedIn](https://www.linkedin.com/in/ashish-kaviti-8a39b1309/)
+- [Email](mailto:kavitiashish6187@gmail.com)
