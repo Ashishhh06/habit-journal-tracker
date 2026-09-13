@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Stats & Performance{% endblock %}
+
+{% block content %}
+<div class="stats-page">
+    <header class="page-header flex-between margin-bottom">
+        <div>
+            <h2>Habit Performance</h2>
+            <p class="subtitle">Compare total completions across your habits</p>
+        </div>
+        <div class="segmented-control">
+            <a href="{{ url_for('stats', range='7d') }}" class="pill-btn {% if current_range == '7d' %}active{% endif %}">7D</a>
+            <a href="{{ url_for('stats', range='30d') }}" class="pill-btn {% if current_range == '30d' %}active{% endif %}">30D</a>
+            <a href="{{ url_for('stats', range='all') }}" class="pill-btn {% if current_range == 'all' %}active{% endif %}">All Time</a>
+        </div>
+    </header>
+
+    {% set sorted_counts = counts | sort(attribute='count', reverse=True) %}
+    {% set max_count = sorted_counts | map(attribute='count') | max if sorted_counts else 0 %}
+
+    {% if max_count > 0 %}
+    <!-- Selected Callout Header Card -->
+    {% set top_habit = sorted_counts[0] %}
+    <div id="stats-callout" class="stats-callout-card" style="border-left: 5px solid {{ top_habit.color }};">
+        <div class="callout-content">
+            <span id="callout-emoji" class="callout-emoji" style="background-color: {{ top_habit.color }}22; padding: 8px; border-radius: 12px;">{{ top_habit.emoji }}</span>
+            <div>
+                <h3 id="callout-title" style="margin: 0;">{{ top_habit.name }}</h3>
+                <p id="callout-count" class="callout-sub">
+                    <strong class="highlight-val" style="color: {{ top_habit.color }};">{{ top_habit.count }}</strong> completions ({{ current_range|upper }})
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart with Y-Axis & Gridlines -->
+    <div class="card bar-chart-card">
+        <div class="chart-with-y-axis">
+            <!-- Y-Axis Labels -->
+            <div class="y-axis-container">
+                <span class="y-tick-label">{{ max_count }}</span>
+                <span class="y-tick-label">{{ (max_count * 0.75) | round | int }}</span>
+                <span class="y-tick-label">{{ (max_count * 0.5) | round | int }}</span>
+                <span class="y-tick-label">{{ (max_count * 0.25) | round | int }}</span>
+                <span class="y-tick-label">0</span>
+            </div>
+
+            <!-- Bars Area & Gridlines -->
+            <div class="chart-bars-area">
+                <div class="gridlines-bg">
+                    <div class="grid-line"></div>
+                    <div class="grid-line"></div>
+                    <div class="grid-line"></div>
+                    <div class="grid-line"></div>
+                    <div class="grid-line"></div>
+                </div>
+
+                <!-- Scrollable Bars Row -->
+                <div class="bars-container">
+                    {% for item in sorted_counts %}
+                    {% set pct = (item.count / max_count * 100) | round | int %}
+                    <div class="bar-col {% if loop.first %}selected{% endif %}" 
+                         onclick="selectBar('{{ item.emoji }}', '{{ item.name|escape }}', {{ item.count }}, '{{ item.color }}', this)">
+                        <!-- Value shown above bar at all times -->
+                        <span class="bar-val-top">{{ item.count }}</span>
+                        
+                        <div class="bar-wrapper">
+                            <div class="bar-fill" style="height: {{ [pct, 5]|max }}%; background-color: {{ item.color }};"></div>
+                        </div>
+                        
+                        <div class="bar-label">
+                            <span class="bar-emoji-badge" style="background-color: {{ item.color }}22;">{{ item.emoji }}</span>
+                            <span class="bar-name-text">{{ item.name }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card empty-card" style="text-align: center; padding: 4rem 2rem;">
+        <div style="font-size: 3.5rem; margin-bottom: 1rem;">📊</div>
+        <h3>No completions in the selected range ({{ current_range|upper }})</h3>
+        <p class="subtitle">Complete habits on your dashboard to view performance analytics.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function selectBar(emoji, name, count, color, element) {
+    document.querySelectorAll('.bar-col').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+
+    const calloutCard = document.getElementById('stats-callout');
+    if (calloutCard) calloutCard.style.borderLeftColor = color;
+
+    const emojiEl = document.getElementById('callout-emoji');
+    if (emojiEl) {
+        emojiEl.textContent = emoji;
+        emojiEl.style.backgroundColor = color + '22';
+    }
+
+    const titleEl = document.getElementById('callout-title');
+    if (titleEl) titleEl.textContent = name;
+
+    const countEl = document.getElementById('callout-count');
+    if (countEl) {
+        countEl.innerHTML = `<strong class="highlight-val" style="color:${color}">${count}</strong> completions ({{ current_range|upper }})`;
+    }
+}
+</script>
+{% endblock %}

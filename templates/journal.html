@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Journal{% endblock %}
+{% block content %}
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <h1>Journal</h1>
+    <a href="/" class="btn btn-primary">+ New Entry</a>
+</div>
+
+<!-- Search & Filter Controls -->
+<div class="card" style="margin-bottom: 2rem;">
+    <form method="GET" action="/journal" class="inline-form">
+        <div class="form-group" style="flex: 1;">
+            <label>Search Notes</label>
+            <input type="text" name="text_search" value="{{ text_search or '' }}" placeholder="Search in notes...">
+        </div>
+        <div class="form-group">
+            <label>Mood</label>
+            <select name="mood_filter">
+                <option value="">All Moods</option>
+                {% for m_key, m_val in moods.items() %}
+                    <option value="{{ m_key }}" {% if mood_filter == m_key %}selected{% endif %}>
+                        {{ m_key|capitalize }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>From</label>
+            <input type="date" name="start_date" value="{{ start_date }}">
+        </div>
+        <div class="form-group">
+            <label>To</label>
+            <input type="date" name="end_date" value="{{ end_date }}">
+        </div>
+        <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+</div>
+
+<!-- Journal Feed -->
+{% if entries %}
+    <div class="journal-feed">
+        {% for entry in entries %}
+        <div class="journal-card">
+            <div class="journal-mood-col">
+                <div class="journal-mood-emoji">
+                    {% if entry.mood == "happy" %}🙂
+                    {% elif entry.mood == "excited" %}🤩
+                    {% elif entry.mood == "neutral" %}😐
+                    {% elif entry.mood == "tired" %}😴
+                    {% elif entry.mood == "anxious" %}😰
+                    {% elif entry.mood == "sad" %}😔
+                    {% else %}📝
+                    {% endif %}
+                </div>
+                <div class="journal-mood-label">{{ entry.mood or 'No mood' }}</div>
+            </div>
+            <div class="journal-content-col">
+                <div class="journal-timestamp">{{ entry.created_at }}</div>
+                <div class="journal-note">{{ entry.note or '(no note)' }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card" style="text-align: center; padding: 4rem 2rem;">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">📝</div>
+        <h3>No entries found</h3>
+        <p style="color: var(--text-muted);">Try adjusting your search filters or <a href="/">add a new entry</a>.</p>
+    </div>
+{% endif %}
+{% endblock %}

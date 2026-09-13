@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>HabitJournal — Build better habits, one day at a time</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ===================================================================
+           Landing Page Styles
+           =================================================================== */
+        html { scroll-behavior: smooth; }
+
+        /* Override main to be full-width for landing */
+        .landing-main {
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ---- Hero ---- */
+        .hero-section {
+            position: relative;
+            overflow: hidden;
+            min-height: 88vh;
+            display: flex;
+            align-items: center;
+            padding: 6rem 2rem 4rem;
+            background: #0a0a0a;
+        }
+
+        /* SVG blob background */
+        .hero-blobs {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .hero-inner {
+            position: relative;
+            z-index: 1;
+            max-width: 1100px;
+            margin: 0 auto;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .hero-text {}
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(76, 175, 80, 0.12);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            color: #4caf50;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            padding: 0.35rem 0.85rem;
+            border-radius: 100px;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero-title {
+            font-size: clamp(2.4rem, 5vw, 3.8rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            color: #ffffff;
+            margin: 0 0 1.25rem;
+        }
+
+        .hero-title .accent {
+            color: #4caf50;
+        }
+
+        .hero-subtitle {
+            font-size: 1.15rem;
+            color: #999999;
+            line-height: 1.65;
+            margin: 0 0 2.25rem;
+            max-width: 480px;
+        }
+
+        .hero-cta-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-hero-primary {
+            background: #4caf50;
+            color: #000000;
+            font-weight: 700;
+            font-size: 1rem;
+            padding: 0.85rem 2rem;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-hero-primary:hover {
+            background: #43a047;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(76, 175, 80, 0.5);
+            color: #000;
+        }
+
+        .btn-hero-secondary {
+            background: #1e1e1e;
+            color: #e5e5e5;
+            font-weight: 600;
+            font-size: 1rem;
+            padding: 0.85rem 2rem;
+            border-radius: 12px;
+            border: 1px solid #333;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.2s, border-color 0.2s, transform 0.2s;
+        }
+
+        .btn-hero-secondary:hover {
+            background: #252525;
+            border-color: #555;
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+
+        /* Hero visual side */
+        .hero-visual {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hero-mockup-card {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 20px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+        }
+
+        .mockup-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .mockup-dot-row {
+            display: flex;
+            gap: 5px;
+        }
+
+        .mockup-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+        }
+
+        .mockup-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #666;
+        }
+
+        .mockup-habit-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: #242424;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.6rem;
+        }
+
+        .mockup-check {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .mockup-check.done { background: #4caf50; color: #000; }
+        .mockup-check.todo { background: #2a2a2a; border: 2px solid #444; color: transparent; }
+
+        .mockup-habit-name {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #e5e5e5;
+        }
+
+        .mockup-habit-streak {
+            margin-left: auto;
+            font-size: 0.75rem;
+            color: #ff7043;
+            font-weight: 700;
+        }
+
+        .mockup-week-row {
+            display: flex;
+            gap: 5px;
+            margin-top: 0.5rem;
+        }
+
+        .mockup-day-sq {
+            width: 28px; height: 28px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.6rem;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        /* ---- Quote strip ---- */
+        .quote-strip {
+            background: linear-gradient(135deg, #0f1f10 0%, #0d1a0e 100%);
+            border-top: 1px solid #1a2e1b;
+            border-bottom: 1px solid #1a2e1b;
+            padding: 2.5rem 2rem;
+            text-align: center;
+        }
+
+        .quote-strip-inner {
+            max-width: 760px;
+            margin: 0 auto;
+        }
+
+        #rotating-quote {
+            font-size: 1.2rem;
+            font-style: italic;
+            color: #c8e6c9;
+            line-height: 1.65;
+            opacity: 1;
+            transition: opacity 0.5s ease;
+        }
+
+        .quote-attr {
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #4caf50;
+            opacity: 0.8;
+        }
+
+        /* ---- Features ---- */
+        .section {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 5rem 2rem;
+        }
+
+        .section-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            color: #4caf50;
+            text-transform: uppercase;
+            margin-bottom: 0.75rem;
+        }
+
+        .section-title {
+            font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin: 0 0 0.75rem;
+        }
+
+        .section-subtitle {
+            font-size: 1.05rem;
+            color: #888;
+            margin: 0 0 3.5rem;
+            max-width: 560px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+        }
+
+        .feature-card {
+            background: #141414;
+            border: 1px solid #222;
+            border-radius: 16px;
+            padding: 1.75rem;
+            transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(76, 175, 80, 0.4);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        }
+
+        .feature-icon {
+            font-size: 2.2rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .feature-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 0.5rem;
+        }
+
+        .feature-desc {
+            font-size: 0.9rem;
+            color: #888;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        /* ---- How it works ---- */
+        .how-section {
+            background: #0d0d0d;
+            border-top: 1px solid #1e1e1e;
+            border-bottom: 1px solid #1e1e1e;
+            padding: 5rem 2rem;
+        }
+
+        .how-inner {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .steps-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            position: relative;
+        }
+
+        .step-card {
+            background: #141414;
+            border: 1px solid #222;
+            border-radius: 16px;
+            padding: 2rem 1.75rem;
+            text-align: center;
+        }
+
+        .step-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(76, 175, 80, 0.15);
+            border: 2px solid rgba(76, 175, 80, 0.4);
+            color: #4caf50;
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin-bottom: 1.25rem;
+        }
+
+        .step-icon {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.75rem;
+        }
+
+        .step-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 0.5rem;
+        }
+
+        .step-desc {
+            font-size: 0.88rem;
+            color: #888;
+            line-height: 1.55;
+            margin: 0;
+        }
+
+        /* ---- Footer ---- */
+        .landing-footer {
+            background: #080808;
+            border-top: 1px solid #1a1a1a;
+            padding: 2.5rem 2rem;
+            text-align: center;
+        }
+
+        .footer-brand {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #4caf50;
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-copy {
+            font-size: 0.82rem;
+            color: #555;
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 900px) {
+            .hero-inner {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+                text-align: center;
+            }
+            .hero-subtitle { max-width: 100%; }
+            .hero-cta-row { justify-content: center; }
+            .hero-visual { display: none; }
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+            .steps-row { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 600px) {
+            .features-grid { grid-template-columns: 1fr; }
+            .steps-row { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-brand">HabitJournal</div>
+        <div class="nav-links">
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-small" style="margin-left: 0.5rem;">Get Started</a>
+        </div>
+    </nav>
+
+    <main class="landing-main">
+
+        <!-- ================================================================
+             1. HERO
+             ================================================================ -->
+        <section class="hero-section">
+            <!-- Decorative SVG blob background -->
+            <svg class="hero-blobs" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <filter id="blur1"><feGaussianBlur stdDeviation="60"/></filter>
+                    <filter id="blur2"><feGaussianBlur stdDeviation="80"/></filter>
+                </defs>
+                <ellipse cx="900" cy="200" rx="450" ry="350" fill="#1a3d1c" opacity="0.5" filter="url(#blur1)"/>
+                <ellipse cx="200" cy="500" rx="350" ry="250" fill="#12261e" opacity="0.6" filter="url(#blur2)"/>
+                <ellipse cx="650" cy="600" rx="300" ry="200" fill="#0d2a12" opacity="0.4" filter="url(#blur1)"/>
+            </svg>
+
+            <div class="hero-inner">
+                <div class="hero-text">
+                    <div class="hero-badge">✅ Completely Free &amp; Open Source</div>
+                    <h1 class="hero-title">
+                        Build better habits,<br>
+                        <span class="accent">one day at a time.</span>
+                    </h1>
+                    <p class="hero-subtitle">
+                        HabitJournal combines daily habit tracking, a personal timetable, 
+                        in-depth analytics, sub-goal management, and a private journal — all 
+                        in one focused, distraction-free app.
+                    </p>
+                    <div class="hero-cta-row">
+                        <a href="{{ url_for('register') }}" class="btn-hero-primary">🚀 Get Started — it's free</a>
+                        <a href="{{ url_for('login') }}" class="btn-hero-secondary">Login</a>
+                    </div>
+                </div>
+
+                <!-- Mockup card -->
+                <div class="hero-visual">
+                    <div class="hero-mockup-card">
+                        <div class="mockup-header">
+                            <div class="mockup-dot-row">
+                                <div class="mockup-dot" style="background:#ff5f57;"></div>
+                                <div class="mockup-dot" style="background:#ffbd2e;"></div>
+                                <div class="mockup-dot" style="background:#28c840;"></div>
+                            </div>
+                            <span class="mockup-title">Today's Habits</span>
+                        </div>
+
+                        {% set habits_preview = [
+                            {'emoji': '🏃', 'name': 'Morning Run', 'done': True, 'streak': '🔥 14', 'color': '#4caf50', 'checks': [1,1,1,1,1,0,0]},
+                            {'emoji': '📚', 'name': 'Read 20 mins', 'done': True, 'streak': '🔥 7', 'color': '#2196f3', 'checks': [1,0,1,1,0,1,0]},
+                            {'emoji': '🧘', 'name': 'Meditation', 'done': False, 'streak': '🔥 3', 'color': '#9c27b0', 'checks': [0,1,1,0,1,1,0]},
+                            {'emoji': '💧', 'name': 'Drink Water', 'done': True, 'streak': '🔥 21', 'color': '#00bcd4', 'checks': [1,1,1,1,1,1,0]}
+                        ] %}
+
+                        {% for h in habits_preview %}
+                        <div class="mockup-habit-row" style="border-left: 3px solid {{ h.color }};">
+                            <div class="mockup-check {% if h.done %}done{% else %}todo{% endif %}" style="{% if h.done %}background: {{ h.color }};{% endif %}">✓</div>
+                            <span class="mockup-habit-name">{{ h.emoji }} {{ h.name }}</span>
+                            <span class="mockup-habit-streak">{{ h.streak }}</span>
+                        </div>
+                        <div class="mockup-week-row" style="margin-bottom: 0.75rem;">
+                            {% set days = ['M','T','W','T','F','S','S'] %}
+                            {% for i in range(7) %}
+                            <div class="mockup-day-sq" style="background: {% if h.checks[i] %}{{ h.color }}{% else %}#2a2a2a{% endif %};">{{ days[i] }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             2. ROTATING QUOTE STRIP
+             ================================================================ -->
+        <section class="quote-strip">
+            <div class="quote-strip-inner">
+                <p id="rotating-quote">"We are what we repeatedly do. Excellence, then, is not an act, but a habit."</p>
+                <p class="quote-attr">— Aristotle</p>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             3. FEATURES GRID
+             ================================================================ -->
+        <section class="section" id="features">
+            <p class="section-label">What's inside</p>
+            <h2 class="section-title">Every tool you need, nothing you don't.</h2>
+            <p class="section-subtitle">Built for people who want real progress tracking — not gamification gimmicks.</p>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">✅</span>
+                    <h3 class="feature-title">Habit Tracking</h3>
+                    <p class="feature-desc">Track daily or weekly habits with streak calculations, 7-day row views, and a GitHub-style contribution heatmap for month and year overviews.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">📅</span>
+                    <h3 class="feature-title">Weekly Timetable</h3>
+                    <p class="feature-desc">Define your own time blocks and fill in a personal reference schedule for each day of the week. Saves automatically, no page reloads.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">📊</span>
+                    <h3 class="feature-title">Stats &amp; Analytics</h3>
+                    <p class="feature-desc">Compare habit completion counts across custom time ranges (7D / 30D / All Time) with a readable bar chart and per-habit callouts.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🎯</span>
+                    <h3 class="feature-title">Habit Goals</h3>
+                    <p class="feature-desc">Set long-term sub-goals for each habit — separate from daily check-ins. Track progress with circular checkboxes and inline editing.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">📝</span>
+                    <h3 class="feature-title">Private Journal</h3>
+                    <p class="feature-desc">Log daily journal entries with mood tracking and full-text search. Your thoughts stay private and scoped to your account only.</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">📈</span>
+                    <h3 class="feature-title">Deep Analytics</h3>
+                    <p class="feature-desc">Analyse habit completion rates, mood trends over time, and streaks from a dedicated analytics dashboard with exportable data.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             4. HOW IT WORKS
+             ================================================================ -->
+        <section class="how-section" id="how-it-works">
+            <div class="how-inner">
+                <p class="section-label">Simple by design</p>
+                <h2 class="section-title">Up and running in minutes.</h2>
+                <p class="section-subtitle" style="margin-bottom: 3rem;">No onboarding maze. Just create your account, add your habits, and start.</p>
+
+                <div class="steps-row">
+                    <div class="step-card">
+                        <div class="step-num">1</div>
+                        <span class="step-icon">🌱</span>
+                        <h3 class="step-title">Set your habits</h3>
+                        <p class="step-desc">Add the habits you want to build. Pick a schedule, an icon, and a theme colour. Daily or weekly targets — you decide.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-num">2</div>
+                        <span class="step-icon">☀️</span>
+                        <h3 class="step-title">Check in daily</h3>
+                        <p class="step-desc">Open your dashboard each day and tick off completed habits. Write a journal entry. The streak counter handles the motivation.</p>
+                    </div>
+                    <div class="step-card">
+                        <div class="step-num">3</div>
+                        <span class="step-icon">🚀</span>
+                        <h3 class="step-title">See your progress</h3>
+                        <p class="step-desc">Watch your heatmap fill in over weeks and months. Review your stats, revisit journal entries, and set bigger goals as you improve.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             5. FINAL CTA BAND
+             ================================================================ -->
+        <section style="text-align: center; padding: 5rem 2rem; background: #0a0a0a;">
+            <h2 style="font-size: clamp(1.8rem, 3.5vw, 2.6rem); font-weight: 800; color: #fff; margin: 0 0 1rem; letter-spacing: -0.02em;">Ready to build better habits?</h2>
+            <p style="color: #888; margin: 0 0 2.25rem; font-size: 1.05rem;">Join and start tracking for free today — no credit card, no trial period.</p>
+            <a href="{{ url_for('register') }}" class="btn-hero-primary" style="font-size: 1.1rem; padding: 1rem 2.5rem;">🚀 Create your free account</a>
+        </section>
+
+        <!-- ================================================================
+             FOOTER
+             ================================================================ -->
+        <footer class="landing-footer">
+            <div class="footer-brand">HabitJournal</div>
+            <p class="footer-copy">© 2026 HabitJournal · Built with Flask + Python · All data stays yours.</p>
+        </footer>
+    </main>
+
+    <div id="toast-container"></div>
+
+    <script>
+        // Rotating quotes (reusing the same quote set as Goals page)
+        const quotes = [
+            { text: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.", attr: "— Aristotle" },
+            { text: "Success is the sum of small efforts, repeated day in and day out.", attr: "— Robert Collier" },
+            { text: "Motivation is what gets you started. Habit is what keeps you going.", attr: "— Jim Ryun" },
+            { text: "The secret to your future is hidden in your daily routine.", attr: "— Mike Murdock" },
+            { text: "You do not rise to the level of your goals, you fall to the level of your systems.", attr: "— James Clear" },
+            { text: "A year from now, you'll wish you had started today.", attr: "— Karen Lamb" },
+            { text: "Small daily improvements over time lead to stunning results.", attr: "— Robin Sharma" },
+            { text: "The chains of habit are too light to be felt until they are too heavy to be broken.", attr: "— Warren Buffett" }
+        ];
+
+        let quoteIdx = 0;
+        const quoteEl = document.getElementById('rotating-quote');
+        const attrEl = quoteEl.nextElementSibling;
+
+        function nextQuote() {
+            quoteEl.style.opacity = '0';
+            setTimeout(() => {
+                quoteIdx = (quoteIdx + 1) % quotes.length;
+                quoteEl.textContent = '"' + quotes[quoteIdx].text + '"';
+                attrEl.textContent = quotes[quoteIdx].attr;
+                quoteEl.style.opacity = '1';
+            }, 500);
+        }
+
+        setInterval(nextQuote, 6000);
+    </script>
+</body>
+</html>

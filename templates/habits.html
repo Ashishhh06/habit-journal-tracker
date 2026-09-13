@@ -1,0 +1,516 @@
+{% extends "base.html" %}
+{% block title %}Habits{% endblock %}
+{% block content %}
+
+<div class="habits-page">
+    <header class="page-header flex-between margin-bottom">
+        <div>
+            <h2>My Habits</h2>
+            <p class="subtitle">Track and manage your daily routines</p>
+        </div>
+        <div class="flex-gap">
+            <!-- Segmented Pill Toggle -->
+            <div class="segmented-control">
+                <button type="button" class="pill-btn {% if view_mode == 'week' %}active{% endif %}" id="view-btn-week" onclick="switchHabitsView('week')">Week</button>
+                <button type="button" class="pill-btn {% if view_mode == 'month' %}active{% endif %}" id="view-btn-month" onclick="switchHabitsView('month')">Month</button>
+                <button type="button" class="pill-btn {% if view_mode == 'year' %}active{% endif %}" id="view-btn-year" onclick="switchHabitsView('year')">Year</button>
+            </div>
+            <button class="btn btn-primary" onclick="document.getElementById('add-habit-form').style.display = 'block'">+ New Habit</button>
+        </div>
+    </header>
+
+    <!-- Add Habit Form (Hidden by default) -->
+    <div id="add-habit-form" class="card" style="display: none; margin-bottom: 2rem;">
+        <h3>Add a New Habit</h3>
+        <form action="/habits/add" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="inline-form">
+                <div class="form-group" style="flex: 2;">
+                    <label>Habit Name</label>
+                    <input type="text" name="name" required placeholder="e.g., Read for 20 mins" class="form-input">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Category</label>
+                    <select name="category" class="form-select">
+                        <option value="">None</option>
+                        <option value="Health">Health</option>
+                        <option value="Fitness">Fitness</option>
+                        <option value="Mindfulness">Mindfulness</option>
+                        <option value="Learning">Learning</option>
+                        <option value="Productivity">Productivity</option>
+                        <option value="Social">Social</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Emoji Icon</label>
+                <input type="hidden" name="emoji" id="emoji-input" value="🏃">
+                <div class="emoji-picker" id="emoji-picker">
+                    <!-- Emojis populated by JS -->
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Schedule Days (Leave blank for Every Day)</label>
+                <div class="day-checkbox-group">
+                    {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+                    <label class="day-checkbox-label">
+                        <input type="checkbox" name="days" value="{{ day }}">
+                        <span>{{ day }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="inline-form">
+                <div class="form-group">
+                    <label>Frequency</label>
+                    <select name="frequency_type" id="freq-type" class="form-select" onchange="toggleWeeklyTarget()">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly Target</option>
+                    </select>
+                </div>
+                <div class="form-group" id="weekly-target-group" style="display: none;">
+                    <label>Weekly Target (days/week)</label>
+                    <input type="number" name="weekly_target" min="1" max="7" value="3" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Preferred Time (Optional)</label>
+                    <input type="time" name="time" class="form-input" style="height: 42px;">
+                </div>
+                <div class="form-group">
+                    <label>Theme Color</label>
+                    <input type="color" name="color" value="#4caf50" style="height: 42px; border: none; border-radius: 8px; padding: 0; cursor: pointer; width: 100%;">
+                </div>
+            </div>
+
+            <div style="margin-top: 1rem; display: flex; gap: 1rem;">
+                <button type="submit" class="btn btn-primary">Save Habit</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('add-habit-form').style.display = 'none'">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- =========================================================================
+         VIEW 1: WEEK VIEW (Stacked Cards + 7-Day Row)
+         ========================================================================= -->
+    <div id="habits-view-week" class="habits-view-panel {% if view_mode == 'week' %}active{% endif %}" style="{% if view_mode != 'week' %}display: none;{% endif %}">
+        <div class="week-nav-bar flex-between margin-bottom">
+            <span class="week-range-text">Week of {{ week_dates[0] }} to {{ week_dates[6] }}</span>
+            <div class="flex-gap">
+                <a href="{{ url_for('habits', view='week', week_offset=week_offset-1) }}" class="btn btn-secondary btn-small">&larr; Prev Week</a>
+                {% if week_offset != 0 %}
+                <a href="{{ url_for('habits', view='week') }}" class="btn btn-secondary btn-small">This Week</a>
+                {% endif %}
+                <a href="{{ url_for('habits', view='week', week_offset=week_offset+1) }}" class="btn btn-secondary btn-small">Next Week &rarr;</a>
+            </div>
+        </div>
+
+        {% if habits %}
+        <div class="habits-grid-stacked">
+            {% for h in habits %}
+            {% set sched = schedules[h.id] %}
+            {% set week_status = habit_week_status[h.name] %}
+            {% set is_today_done = today_status[h.name] %}
+            <div class="habit-card-stacked" style="border-left: 5px solid {{ h.color or '#4caf50' }};">
+                <div class="habit-card-top flex-between">
+                    <div class="habit-title-wrapper">
+                        <span class="habit-emoji-badge" style="background-color: {{ h.color or '#4caf50' }}22;">{{ h.emoji or '⭐' }}</span>
+                        <div>
+                            <h3 class="habit-name-heading">{{ h.name }}</h3>
+                            <span class="small-text text-muted">
+                                {% if sched and sched.days %}🗓️ {{ sched.days|join(', ') }}{% else %}🗓️ Every day{% endif %}
+                                {% if sched and sched.time %} at 🕒 {{ sched.time }}{% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="habit-top-actions flex-gap">
+                        <a href="{{ url_for('timetable') }}" class="btn btn-secondary btn-small" title="Timetable">📅</a>
+                        <button type="button" 
+                                class="btn btn-small {% if is_today_done %}btn-success{% else %}btn-primary{% endif %}"
+                                id="today-btn-{{ h.id }}"
+                                onclick="toggleTodayHabit('{{ h.name }}', this, '{{ h.color or "#4caf50" }}')">
+                            {% if is_today_done %}✓ Today{% else %}+ Today{% endif %}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 7-Day Row Squares -->
+                <div class="seven-day-row margin-top">
+                    {% for i in range(7) %}
+                    {% set d_str = week_dates[i] %}
+                    {% set is_done = week_status[i] %}
+                    {% set is_curr_today = (d_str == today_str) %}
+                    <div class="day-square-col">
+                        <span class="day-label-sm">{{ week_day_names[i] }}</span>
+                        <div class="day-square {% if is_done %}completed{% endif %} {% if is_curr_today %}is-today{% endif %}"
+                             style="{% if is_done %}background-color: {{ h.color or '#4caf50' }}; border-color: {{ h.color or '#4caf50' }};{% endif %}"
+                             title="{{ d_str }}: {% if is_done %}Completed{% else %}Not completed{% endif %}"
+                             onclick="toggleDateHabit('{{ h.name }}', '{{ d_str }}', this, '{{ h.color or "#4caf50" }}')">
+                            {% if is_done %}<span class="square-check">✓</span>{% endif %}
+                            {% if is_curr_today %}<span class="today-dot"></span>{% endif %}
+                        </div>
+                        <span class="date-num-sm">{{ d_str[-2:] }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="habit-card-footer flex-between margin-top-sm">
+                    <div class="streak-badge">
+                        🔥 Streak: <strong>{{ streaks[h.name][0] if streaks[h.name] else 0 }}</strong> days
+                    </div>
+                    <div class="flex-gap">
+                        <button type="button" class="btn-text small-text" onclick="toggleScheduleForm('sched-form-{{ h.id }}')">Edit Schedule</button>
+                        <form action="/habits/remove" method="POST" style="display:inline;" onsubmit="return confirm('Delete habit?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="name" value="{{ h.name }}">
+                            <button type="submit" class="btn-text danger-text small-text">Delete</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Inline Schedule Form -->
+                <form id="sched-form-{{ h.id }}" action="/habits/schedule" method="POST" class="card schedule-form-card" style="display: none; margin-top: 1rem; background: var(--bg-alt); padding: 1rem;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="habit_id" value="{{ h.id }}">
+                    <label class="small-text" style="font-weight: 600; display: block; margin-bottom: 0.5rem;">Select Active Days:</label>
+                    <div class="day-checkbox-group">
+                        {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+                        <label class="day-checkbox-label">
+                            <input type="checkbox" name="days" value="{{ day }}" {% if sched and day in sched.days %}checked{% endif %}>
+                            <span>{{ day }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <div class="form-group" style="margin-top: 0.75rem;">
+                        <label class="small-text" style="font-weight: 600;">Time of Day:</label>
+                        <input type="time" name="time" value="{{ sched.time if sched and sched.time else '' }}" class="form-input" style="height: 38px;">
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                        <button type="submit" class="btn btn-primary btn-small">Save Schedule</button>
+                        <button type="button" class="btn btn-secondary btn-small" onclick="toggleScheduleForm('sched-form-{{ h.id }}')">Cancel</button>
+                    </div>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card empty-card">
+            <div class="empty-icon">🌱</div>
+            <h3>No habits yet!</h3>
+            <p class="subtitle">Start building your routine today.</p>
+            <button class="btn btn-primary" onclick="document.getElementById('add-habit-form').style.display = 'block'">+ Add your first habit</button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- =========================================================================
+         VIEW 2: MONTH VIEW (Real Single Month Calendar Grid)
+         ========================================================================= -->
+    <div id="habits-view-month" class="habits-view-panel {% if view_mode == 'month' %}active{% endif %}" style="{% if view_mode != 'month' %}display: none;{% endif %}">
+        {% if habits %}
+        <!-- Carousel Nav Header -->
+        <div class="carousel-nav-header flex-between margin-bottom">
+            <button class="carousel-arrow-btn" onclick="prevMonthHabit()">&lsaquo; Prev Habit</button>
+            <div class="carousel-habit-title flex-gap">
+                <span id="month-carousel-emoji" class="habit-emoji-badge">🏃</span>
+                <h3 id="month-carousel-name">Habit Name</h3>
+            </div>
+            <button class="carousel-arrow-btn" onclick="nextMonthHabit()">Next Habit &rsaquo;</button>
+        </div>
+
+        {% for h in habits %}
+        {% set cal_data = month_calendars[h.name] %}
+        <div class="card month-calendar-card habit-carousel-item-month" id="month-card-{{ h.id }}" style="display: none; border-top: 4px solid {{ h.color or '#4caf50' }};">
+            <div class="month-header flex-between margin-bottom">
+                <div class="flex-gap">
+                    <a href="{{ url_for('habits', view='month', month=cal_data.prev_month, month_year=cal_data.prev_year) }}" class="btn btn-secondary btn-small">&larr;</a>
+                    <h3>{{ cal_data.month_name }} {{ cal_data.year }}</h3>
+                    <a href="{{ url_for('habits', view='month', month=cal_data.next_month, month_year=cal_data.next_year) }}" class="btn btn-secondary btn-small">&rarr;</a>
+                </div>
+                <button type="button" class="btn btn-small {% if today_status[h.name] %}btn-success{% else %}btn-primary{% endif %}" onclick="toggleTodayHabit('{{ h.name }}', this, '{{ h.color or "#4caf50" }}')">
+                    {% if today_status[h.name] %}✓ Today{% else %}+ Today{% endif %}
+                </button>
+            </div>
+
+            <!-- Month Calendar Grid (7 Columns) -->
+            <div class="month-calendar-grid">
+                <!-- Header row for 7 weekdays -->
+                {% for head in cal_data.weekday_headers %}
+                <div class="month-weekday-header">{{ head }}</div>
+                {% endfor %}
+
+                <!-- Weeks Grid -->
+                {% for week in cal_data.weeks %}
+                    {% for slot in week %}
+                        {% if slot is none %}
+                        <div class="month-day-cell pad-cell"></div>
+                        {% else %}
+                        <div class="month-day-cell in-month {% if slot.completed %}completed{% endif %} {% if slot.date == today_str %}is-today{% endif %}"
+                             style="{% if slot.completed %}background-color: {{ h.color or '#4caf50' }}; border-color: {{ h.color or '#4caf50' }};{% endif %}"
+                             title="{{ slot.date }}: {% if slot.completed %}Completed{% else %}Not completed{% endif %}"
+                             onclick="toggleDateHabit('{{ h.name }}', '{{ slot.date }}', this, '{{ h.color or "#4caf50" }}')">
+                            <span class="day-number">{{ slot.day }}</span>
+                            {% if slot.completed %}<span class="cell-check-icon">✓</span>{% endif %}
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </div>
+
+            <div class="month-footer margin-top">
+                <span class="month-count-text">{{ cal_data.total_checkins }} check-ins in {{ cal_data.month_name }} {{ cal_data.year }}</span>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- =========================================================================
+         VIEW 3: YEAR VIEW (Rolling Heatmap Grid + Header Stats + Month Labels)
+         ========================================================================= -->
+    <div id="habits-view-year" class="habits-view-panel {% if view_mode == 'year' %}active{% endif %}" style="{% if view_mode != 'year' %}display: none;{% endif %}">
+        {% if habits %}
+        <!-- Carousel Nav Header -->
+        <div class="carousel-nav-header flex-between margin-bottom">
+            <button class="carousel-arrow-btn" onclick="prevYearHabit()">&lsaquo; Prev Habit</button>
+            <div class="carousel-habit-title flex-gap">
+                <span id="year-carousel-emoji" class="habit-emoji-badge">🏃</span>
+                <h3 id="year-carousel-name">Habit Name</h3>
+            </div>
+            <button class="carousel-arrow-btn" onclick="nextYearHabit()">Next Habit &rsaquo;</button>
+        </div>
+
+        {% for h in habits %}
+        {% set hm = year_heatmaps[h.name] %}
+        <div class="card year-heatmap-card habit-carousel-item-year" id="year-card-{{ h.id }}" style="display: none; border-top: 4px solid {{ h.color or '#4caf50' }};">
+            <!-- Header Summary Stats Bar -->
+            <div class="year-header-stats flex-between margin-bottom">
+                <div class="year-summary-left">
+                    <h3 class="year-checkin-count">{{ hm.total_checkins }} check-ins {{ hm.label }}</h3>
+                </div>
+                <div class="year-summary-right flex-gap">
+                    <div class="stat-pill-badge">
+                        <span>Total active days: <strong>{{ hm.total_active_days }}</strong></span>
+                    </div>
+                    <div class="stat-pill-badge">
+                        <span>🔥 Max streak: <strong>{{ hm.max_streak }}</strong></span>
+                    </div>
+                    <select class="form-select-sm" onchange="changeYearMode(this.value)">
+                        <option value="current" {% if year_mode == 'current' %}selected{% endif %}>Current (Past 1 Year)</option>
+                        {% for yr in hm.available_years %}
+                        <option value="{{ yr }}" {% if year_mode == (yr|string) %}selected{% endif %}>{{ yr }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Heatmap Grid Container -->
+            <div class="year-heatmap-scroll-container">
+                <div class="year-heatmap-layout">
+                    <!-- Day Labels Column (Sun..Sat) -->
+                    <div class="heatmap-day-labels">
+                        <span class="day-lbl">Sun</span>
+                        <span class="day-lbl">Mon</span>
+                        <span class="day-lbl">Tue</span>
+                        <span class="day-lbl">Wed</span>
+                        <span class="day-lbl">Thu</span>
+                        <span class="day-lbl">Fri</span>
+                        <span class="day-lbl">Sat</span>
+                    </div>
+
+                    <!-- Heatmap Columns Container -->
+                    <div class="heatmap-columns-wrapper">
+                        <!-- Month Labels Row Above Columns -->
+                        <div class="month-labels-row">
+                            {% for col in hm.weeks %}
+                            <div class="month-label-slot">
+                                {% if col.month_label %}<span class="month-name-tag">{{ col.month_label }}</span>{% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Heatmap Columns -->
+                        <div class="heatmap-columns-grid">
+                            {% for col in hm.weeks %}
+                            <div class="heatmap-week-column">
+                                {% for day_cell in col.days %}
+                                <div class="year-cell {% if day_cell.completed %}completed{% endif %} {% if not day_cell.in_range %}out-range{% endif %}"
+                                     style="{% if day_cell.completed %}background-color: {{ h.color or '#4caf50' }};{% endif %}"
+                                     title="{{ day_cell.date }}: {% if day_cell.completed %}Completed{% else %}Not completed{% endif %}"
+                                     onclick="toggleDateHabit('{{ h.name }}', '{{ day_cell.date }}', this, '{{ h.color or "#4caf50" }}')">
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+<script>
+const emojis = ["🏃", "📚", "🧘", "🥗", "💧", "💻", "🎨", "💰", "🛌", "🏋️", "✍️", "🎸", "🪴", "💊", "🧹", "☀️", "🌙", "🚀", "❤️", "🧠"];
+const picker = document.getElementById('emoji-picker');
+const input = document.getElementById('emoji-input');
+
+emojis.forEach(e => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-btn' + (e === '🏃' ? ' selected' : '');
+    btn.textContent = e;
+    btn.onclick = () => {
+        document.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        input.value = e;
+    };
+    picker.appendChild(btn);
+});
+
+function toggleWeeklyTarget() {
+    const type = document.getElementById('freq-type').value;
+    const group = document.getElementById('weekly-target-group');
+    group.style.display = (type === 'weekly') ? 'block' : 'none';
+}
+
+function toggleScheduleForm(formId) {
+    const el = document.getElementById(formId);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// Habit Carousel State
+let monthCarouselIdx = 0;
+let yearCarouselIdx = 0;
+const habitsList = [
+    {% for h in habits %}
+    { id: {{ h.id }}, name: "{{ h.name|escape }}", emoji: "{{ h.emoji or '⭐' }}", color: "{{ h.color or '#4caf50' }}" }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+function switchHabitsView(mode) {
+    document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.habits-view-panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
+
+    document.getElementById('view-btn-' + mode).classList.add('active');
+    const panel = document.getElementById('habits-view-' + mode);
+    if (panel) {
+        panel.classList.add('active');
+        panel.style.display = 'block';
+    }
+
+    if (mode === 'month') updateMonthCarousel();
+    if (mode === 'year') updateYearCarousel();
+}
+
+function updateMonthCarousel() {
+    if (!habitsList.length) return;
+    const h = habitsList[monthCarouselIdx];
+    document.getElementById('month-carousel-emoji').textContent = h.emoji;
+    document.getElementById('month-carousel-emoji').style.backgroundColor = h.color + '22';
+    document.getElementById('month-carousel-name').textContent = h.name;
+
+    document.querySelectorAll('.habit-carousel-item-month').forEach(card => card.style.display = 'none');
+    const activeCard = document.getElementById('month-card-' + h.id);
+    if (activeCard) activeCard.style.display = 'block';
+}
+
+function prevMonthHabit() {
+    if (!habitsList.length) return;
+    monthCarouselIdx = (monthCarouselIdx - 1 + habitsList.length) % habitsList.length;
+    updateMonthCarousel();
+}
+
+function nextMonthHabit() {
+    if (!habitsList.length) return;
+    monthCarouselIdx = (monthCarouselIdx + 1) % habitsList.length;
+    updateMonthCarousel();
+}
+
+function updateYearCarousel() {
+    if (!habitsList.length) return;
+    const h = habitsList[yearCarouselIdx];
+    document.getElementById('year-carousel-emoji').textContent = h.emoji;
+    document.getElementById('year-carousel-emoji').style.backgroundColor = h.color + '22';
+    document.getElementById('year-carousel-name').textContent = h.name;
+
+    document.querySelectorAll('.habit-carousel-item-year').forEach(card => card.style.display = 'none');
+    const activeCard = document.getElementById('year-card-' + h.id);
+    if (activeCard) activeCard.style.display = 'block';
+}
+
+function prevYearHabit() {
+    if (!habitsList.length) return;
+    yearCarouselIdx = (yearCarouselIdx - 1 + habitsList.length) % habitsList.length;
+    updateYearCarousel();
+}
+
+function nextYearHabit() {
+    if (!habitsList.length) return;
+    yearCarouselIdx = (yearCarouselIdx + 1) % habitsList.length;
+    updateYearCarousel();
+}
+
+function changeYearMode(modeVal) {
+    window.location.href = `{{ url_for('habits') }}?view=year&year_mode=${modeVal}`;
+}
+
+function toggleTodayHabit(name, btnEl, color) {
+    toggleDateHabit(name, '{{ today_str }}', null, color, btnEl);
+}
+
+function toggleDateHabit(name, dateStr, cellEl, color, btnEl) {
+    fetch('{{ url_for("toggle_habit") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ name: name, date: dateStr })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            showToast(data.error, 'error');
+        } else {
+            const isCompleted = (data.completed === 1);
+            showToast((isCompleted ? 'Checked ' : 'Unchecked ') + name);
+
+            if (cellEl) {
+                if (isCompleted) {
+                    cellEl.classList.add('completed');
+                    cellEl.style.backgroundColor = color;
+                    cellEl.style.borderColor = color;
+                } else {
+                    cellEl.classList.remove('completed');
+                    cellEl.style.backgroundColor = '';
+                    cellEl.style.borderColor = '';
+                }
+            }
+
+            if (btnEl) {
+                if (isCompleted) {
+                    btnEl.textContent = '✓ Today';
+                    btnEl.className = 'btn btn-small btn-success';
+                } else {
+                    btnEl.textContent = '+ Today';
+                    btnEl.className = 'btn btn-small btn-primary';
+                }
+            }
+        }
+    })
+    .catch(() => showToast('Error toggling habit status', 'error'));
+}
+
+// Initial view setup
+document.addEventListener('DOMContentLoaded', () => {
+    switchHabitsView('{{ view_mode }}');
+});
+</script>
+{% endblock %}

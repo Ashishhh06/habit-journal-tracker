@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Habit Goals{% endblock %}
+
+{% block content %}
+<div class="goals-page">
+    <header class="page-header flex-between margin-bottom">
+        <div>
+            <h2>Habit Goals</h2>
+            <p class="subtitle">Long-term objectives & milestones tied to your habits</p>
+        </div>
+    </header>
+
+    {% if habits %}
+    <div class="goals-carousel-container">
+        <!-- Habit Carousel Selector Tabs -->
+        <div class="habit-carousel-tabs">
+            <button class="carousel-nav-btn" onclick="scrollGoalsTab(-1)">&lsaquo;</button>
+            <div class="tabs-scroll" id="goals-tabs-scroll">
+                {% for h in habits %}
+                <button class="habit-tab-btn {% if loop.first %}active{% endif %}" 
+                        id="tab-btn-{{ h.id }}"
+                        style="--accent-color: {{ h.color or '#4caf50' }};"
+                        onclick="showHabitGoals({{ h.id }})">
+                    <span class="tab-emoji">{{ h.emoji or '⭐' }}</span>
+                    <span class="tab-name">{{ h.name }}</span>
+                    <span class="tab-badge">{{ goals_by_habit[h.id] | length }}</span>
+                </button>
+                {% endfor %}
+            </div>
+            <button class="carousel-nav-btn" onclick="scrollGoalsTab(1)">&rsaquo;</button>
+        </div>
+
+        <!-- Goals Cards per Habit -->
+        {% for h in habits %}
+        {% set goals = goals_by_habit[h.id] %}
+        <div class="card habit-goals-card {% if loop.first %}active{% endif %}" id="goals-card-{{ h.id }}" style="border-top: 4px solid {{ h.color or '#4caf50' }};">
+            <div class="goals-card-header">
+                <div class="habit-title-large">
+                    <span class="habit-emoji-badge" style="background-color: {{ h.color or '#4caf50' }}22;">{{ h.emoji or '⭐' }}</span>
+                    <div>
+                        <h3>{{ h.name }}</h3>
+                        <span class="small-text text-muted">{{ goals | length }} goals</span>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-small" onclick="toggleNewGoalForm('new-goal-{{ h.id }}')">+ Add Goal</button>
+            </div>
+
+            <!-- New Goal Form -->
+            <form id="new-goal-{{ h.id }}" action="/goals/add" method="POST" class="new-goal-form" style="display: none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="habit_id" value="{{ h.id }}">
+                <div class="inline-form">
+                    <input type="text" name="description" required placeholder="e.g., Run 10km under 50 minutes" class="form-input">
+                    <button type="submit" class="btn btn-primary btn-small">Save Goal</button>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="toggleNewGoalForm('new-goal-{{ h.id }}')">Cancel</button>
+                </div>
+            </form>
+
+            <!-- Goals List -->
+            <div class="goals-list margin-top">
+                {% if goals %}
+                    {% for g in goals %}
+                    <div class="goal-item {% if g.completed %}completed{% endif %}" id="goal-item-{{ g.id }}">
+                        <label class="circular-checkbox">
+                            <input type="checkbox" {% if g.completed %}checked{% endif %} onchange="toggleGoalStatus({{ g.id }}, this)">
+                            <span class="checkmark-circle"></span>
+                        </label>
+
+                        <div class="goal-desc-wrapper" id="desc-wrap-{{ g.id }}">
+                            <span class="goal-text" id="goal-text-{{ g.id }}">{{ g.description }}</span>
+                        </div>
+
+                        <!-- Edit Form (Hidden by default) -->
+                        <form id="edit-form-{{ g.id }}" action="/goals/edit" method="POST" class="inline-edit-form" style="display: none;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="goal_id" value="{{ g.id }}">
+                            <input type="text" name="description" value="{{ g.description }}" required class="form-input-sm">
+                            <button type="submit" class="btn btn-primary btn-xsmall">Save</button>
+                            <button type="button" class="btn btn-secondary btn-xsmall" onclick="cancelGoalEdit({{ g.id }})">X</button>
+                        </form>
+
+                        <div class="goal-actions">
+                            <button type="button" class="action-btn edit-btn" title="Edit goal" onclick="startGoalEdit({{ g.id }})">✏️</button>
+                            <form action="/goals/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this goal?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="goal_id" value="{{ g.id }}">
+                                <button type="submit" class="action-btn delete-btn" title="Delete goal">🗑️</button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-goals-state">
+                        <p class="text-muted">No sub-goals set for this habit yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card empty-card">
+        <div class="empty-icon">🎯</div>
+        <h3>No habits found</h3>
+        <p class="subtitle">Create habits first before setting long-term goals.</p>
+    </div>
+    {% endif %}
+
+    <!-- Motivational Quote Footer -->
+    <div class="quote-card margin-top-lg">
+        <span class="quote-icon">💡</span>
+        <p id="motivational-quote" class="quote-text">"We are what we repeatedly do. Excellence, then, is not an act, but a habit."</p>
+    </div>
+</div>
+
+<script>
+const quotes = [
+    '"We are what we repeatedly do. Excellence, then, is not an act, but a habit." – Will Durant',
+    '"Small daily improvements over time lead to stunning results." – Robin Sharma',
+    '"You do not rise to the level of your goals. You fall to the level of your systems." – James Clear',
+    '"Action is the foundational key to all success." – Pablo Picasso',
+    '"Consistency is what transforms average into excellence." – Anonymous'
+];
+
+document.addEventListener('DOMContentLoaded', () => {
+    const idx = Math.floor(Math.random() * quotes.length);
+    document.getElementById('motivational-quote').textContent = quotes[idx];
+});
+
+function showHabitGoals(habitId) {
+    document.querySelectorAll('.habit-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.habit-goals-card').forEach(card => card.classList.remove('active'));
+
+    const tabBtn = document.getElementById('tab-btn-' + habitId);
+    const card = document.getElementById('goals-card-' + habitId);
+    if (tabBtn) tabBtn.classList.add('active');
+    if (card) card.classList.add('active');
+}
+
+function scrollGoalsTab(direction) {
+    const container = document.getElementById('goals-tabs-scroll');
+    container.scrollBy({ left: direction * 180, behavior: 'smooth' });
+}
+
+function toggleNewGoalForm(formId) {
+    const el = document.getElementById(formId);
+    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleGoalStatus(goalId, checkbox) {
+    const itemEl = document.getElementById('goal-item-' + goalId);
+    if (checkbox.checked) {
+        itemEl.classList.add('completed');
+    } else {
+        itemEl.classList.remove('completed');
+    }
+
+    fetch('{{ url_for("toggle_goal") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ goal_id: goalId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            checkbox.checked = !checkbox.checked;
+            itemEl.classList.toggle('completed');
+            showToast(data.error, 'error');
+        }
+    })
+    .catch(() => {
+        checkbox.checked = !checkbox.checked;
+        itemEl.classList.toggle('completed');
+        showToast('Network error toggling goal state.', 'error');
+    });
+}
+
+function startGoalEdit(goalId) {
+    document.getElementById('desc-wrap-' + goalId).style.display = 'none';
+    document.getElementById('edit-form-' + goalId).style.display = 'flex';
+}
+
+function cancelGoalEdit(goalId) {
+    document.getElementById('desc-wrap-' + goalId).style.display = 'block';
+    document.getElementById('edit-form-' + goalId).style.display = 'none';
+}
+</script>
+{% endblock %}

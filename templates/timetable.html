@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Timetable{% endblock %}
+
+{% block content %}
+<div class="timetable-grid-page">
+    <header class="page-header flex-between margin-bottom">
+        <div>
+            <h2>Weekly Timetable</h2>
+            <p class="subtitle">Personal weekly reference schedule</p>
+        </div>
+        <button class="btn btn-primary" onclick="toggleAddBlockForm()">+ Add Time Block</button>
+    </header>
+
+    <!-- Add Time Block Form -->
+    <div id="add-block-form-card" class="card" style="display: none; margin-bottom: 1.5rem;">
+        <h3>Add New Time Block</h3>
+        <form action="/timetable/block/add" method="POST" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Start Time</label>
+                <input type="time" name="start_time" required class="form-input">
+            </div>
+            <div class="form-group">
+                <label>End Time</label>
+                <input type="time" name="end_time" required class="form-input">
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-self: flex-end; margin-bottom: 1.25rem;">
+                <button type="submit" class="btn btn-primary btn-small">Add Block</button>
+                <button type="button" class="btn btn-secondary btn-small" onclick="toggleAddBlockForm()">Cancel</button>
+            </div>
+        </form>
+    </div>
+
+    {% if grid %}
+    <!-- Horizontally Scrollable Grid Container -->
+    <div class="table-scroll-container card" style="padding: 0; overflow-x: auto;">
+        <table class="timetable-grid-table">
+            <thead>
+                <tr>
+                    <th class="time-col-header">Time Block</th>
+                    {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+                    <th>{{ day }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in grid %}
+                <tr id="block-row-{{ row.id }}">
+                    <td class="time-cell">
+                        <div class="flex-between">
+                            <span class="time-range-text">{{ row.formatted_time }}</span>
+                            <form action="/timetable/block/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete this time block and its cells?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="block_id" value="{{ row.id }}">
+                                <button type="submit" class="block-delete-btn" title="Delete time block">&times;</button>
+                            </form>
+                        </div>
+                    </td>
+                    {% for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+                    <td class="cell-td">
+                        <input type="text" 
+                               class="grid-cell-input" 
+                               value="{{ row.cells[day] }}" 
+                               placeholder="—"
+                               data-original-val="{{ row.cells[day] }}"
+                               onblur="saveCellText({{ row.id }}, '{{ day }}', this)"
+                               onkeydown="if(event.key === 'Enter'){ this.blur(); }">
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card empty-card">
+        <div class="empty-icon">📅</div>
+        <h3>No Time Blocks Yet</h3>
+        <p class="subtitle">Add your first time block above to start building your custom weekly schedule!</p>
+        <button class="btn btn-primary margin-top-sm" onclick="toggleAddBlockForm()">+ Add Time Block</button>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleAddBlockForm() {
+    const el = document.getElementById('add-block-form-card');
+    if (el) el.style.display = (el.style.display === 'none') ? 'block' : 'none';
+}
+
+function saveCellText(blockId, dayOfWeek, inputEl) {
+    const newText = inputEl.value.trim();
+    const oldText = inputEl.getAttribute('data-original-val') || '';
+
+    // If no change, do nothing
+    if (newText === oldText) return;
+
+    fetch('{{ url_for("set_timetable_cell") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            block_id: blockId,
+            day_of_week: dayOfWeek,
+            label: newText
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            inputEl.value = oldText;
+            showToast(data.error, 'error');
+        } else {
+            inputEl.setAttribute('data-original-val', newText);
+            // Visual success feedback
+            inputEl.classList.add('save-flash');
+            setTimeout(() => inputEl.classList.remove('save-flash'), 600);
+        }
+    })
+    .catch(() => {
+        inputEl.value = oldText;
+        showToast('Error saving cell data', 'error');
+    });
+}
+</script>
+{% endblock %}

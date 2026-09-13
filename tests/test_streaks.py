@@ -1,7 +1,7 @@
 # tests/test_streaks.py
 
 from datetime import datetime, timedelta
-from journal.streaks import compute_streaks
+from journal.streaks import compute_streaks, compute_weekly_streaks
 
 
 def dates_ago(n_list):
@@ -12,6 +12,22 @@ def dates_ago(n_list):
 
 def test_empty_list_returns_zero():
     assert compute_streaks([]) == (0, 0)
+
+
+def test_compute_weekly_streaks():
+    # Targets met: week 1, 2, 3. Week 4 missed.
+    counts = [3, 3, 4, 1]
+    targets = 3
+    curr, longest = compute_weekly_streaks(counts, targets)
+    assert curr == 0
+    assert longest == 3
+    
+    # Target varying
+    counts = [1, 2, 3]
+    targets = [1, 2, 3]
+    curr, longest = compute_weekly_streaks(counts, targets)
+    assert curr == 3
+    assert longest == 3
 
 
 def test_single_day_today():

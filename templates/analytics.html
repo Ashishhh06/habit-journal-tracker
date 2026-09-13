@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block content %}
+
+<h1>Analytics</h1>
+
+<!-- Date Range Controls -->
+<div class="card" style="margin-bottom: 2rem;">
+    <h3>Date Range</h3>
+    <form method="GET" action="/analytics" class="inline-form" id="analytics-form">
+        <div class="form-group">
+            <label>From</label>
+            <input type="date" name="start_date" id="start_date" value="{{ start_date }}">
+        </div>
+        <div class="form-group">
+            <label>To</label>
+            <input type="date" name="end_date" id="end_date" value="{{ end_date }}">
+        </div>
+        <div class="form-group">
+            <label>Report Year</label>
+            <input type="number" name="year" value="{{ year }}" min="2000" max="2100" style="width: 100px;">
+        </div>
+        <div class="form-group">
+            <label>Report Month</label>
+            <input type="number" name="month" value="{{ month }}" min="1" max="12" style="width: 80px;">
+        </div>
+        <button type="submit" class="btn btn-primary">Update</button>
+        <a href="/analytics/export.pdf?year={{ year }}&month={{ month }}" class="btn btn-secondary">⬇ PDF Report</a>
+    </form>
+</div>
+
+<!-- Summary Stats -->
+<div class="card">
+    <h2>📊 Summary — {{ start_date }} to {{ end_date }}</h2>
+    <div class="dashboard-stats" style="margin-top: 1.5rem; margin-bottom: 0;">
+        <div class="stat-card">
+            <h4>Best Completion Day</h4>
+            <p style="font-size: 1.2rem;">
+                {% if summary.best_completion_day %}
+                    {{ summary.best_completion_day[0] }}
+                    <span style="font-size: 0.85rem; color: #666;">({{ "%.0f"|format(summary.best_completion_day[1]) }}%)</span>
+                {% else %}N/A{% endif %}
+            </p>
+        </div>
+        <div class="stat-card">
+            <h4>Worst Completion Day</h4>
+            <p style="font-size: 1.2rem;">
+                {% if summary.worst_completion_day %}
+                    {{ summary.worst_completion_day[0] }}
+                    <span style="font-size: 0.85rem; color: #666;">({{ "%.0f"|format(summary.worst_completion_day[1]) }}%)</span>
+                {% else %}N/A{% endif %}
+            </p>
+        </div>
+        <div class="stat-card">
+            <h4>Best Mood Day</h4>
+            <p style="font-size: 1.2rem;">
+                {% if summary.best_mood_day %}
+                    {{ summary.best_mood_day[0] }}
+                    <span style="font-size: 0.85rem; color: #666;">({{ "%.1f"|format(summary.best_mood_day[1]) }})</span>
+                {% else %}N/A{% endif %}
+            </p>
+        </div>
+        <div class="stat-card">
+            <h4>Worst Mood Day</h4>
+            <p style="font-size: 1.2rem;">
+                {% if summary.worst_mood_day %}
+                    {{ summary.worst_mood_day[0] }}
+                    <span style="font-size: 0.85rem; color: #666;">({{ "%.1f"|format(summary.worst_mood_day[1]) }})</span>
+                {% else %}N/A{% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="card">
+    <h2>🗓️ Habit Heatmap</h2>
+    <img src="/analytics/heatmap.png?start_date={{ start_date }}&end_date={{ end_date }}" alt="Habit Heatmap" style="width: 100%; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 1rem;">
+</div>
+
+<div class="card">
+    <h2>📈 Completion Trend</h2>
+    <img src="/analytics/completion.png?start_date={{ start_date }}&end_date={{ end_date }}" alt="Completion Trend" style="width: 100%; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 1rem;">
+</div>
+
+<div class="card">
+    <h2>😊 Mood Trend</h2>
+    <img src="/analytics/mood.png?start_date={{ start_date }}&end_date={{ end_date }}" alt="Mood Trend" style="width: 100%; border-radius: 8px; border: 1px solid var(--border-color); margin-top: 1rem;">
+</div>
+
+<div class="card">
+    <h2>📄 Monthly Report — {{ year }}/{{ '%02d'|format(month) }}</h2>
+    <p style="color: var(--text-muted);">Download a full PDF report with all charts and stats for the selected month.</p>
+    <a href="/analytics/export.pdf?year={{ year }}&month={{ month }}" class="btn btn-primary">⬇ Download PDF</a>
+</div>
+
+{% endblock %}
